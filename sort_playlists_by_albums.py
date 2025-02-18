@@ -1,11 +1,12 @@
+import os
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import time
 
-# Set up Spotify API credentials
-SPOTIPY_CLIENT_ID = "your_client_id"
-SPOTIPY_CLIENT_SECRET = "your_client_secret"
-SPOTIPY_REDIRECT_URI = "http://localhost:8888/callback"
+# Set up Spotify API credentials from environment variables
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback")
 SCOPE = "playlist-modify-public playlist-modify-private playlist-read-private"
 
 # Authenticate with Spotify
