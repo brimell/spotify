@@ -19,7 +19,7 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
                                                scope=SCOPE))
 
 def get_playlist_tracks(playlist_id):
-    """Fetch all tracks from a playlist."""
+    """Fetch all tracks from a playlist while keeping their added order."""
     tracks = []
     results = sp.playlist_tracks(playlist_id)
     
@@ -30,23 +30,25 @@ def get_playlist_tracks(playlist_id):
                 album = track['album']
                 release_date = album['release_date']
                 track_number = track['track_number']
+                added_at = item['added_at']  # Keep track of when the song was added
                 tracks.append({
                     'id': track['id'],
                     'name': track['name'],
                     'album': album['name'],
                     'release_date': release_date,
-                    'track_number': track_number
+                    'track_number': track_number,
+                    'added_at': added_at
                 })
         results = sp.next(results) if results['next'] else None
     
     return tracks
 
 def sort_tracks(tracks):
-    """Sort tracks by album release date, then by track number."""
-    return sorted(tracks, key=lambda x: (x['release_date'], x['album'], x['track_number']))
+    """Sort tracks by album release date, then by track number while keeping the original added order as a secondary factor."""
+    return sorted(tracks, key=lambda x: (x['release_date'], x['album'], x['track_number'], x['added_at']))
 
 def update_sorted_playlist(playlist_id, sorted_tracks):
-    """Update an existing playlist with sorted tracks."""
+    """Update an existing playlist with sorted tracks while maintaining the original added dates."""
     track_ids = [track['id'] for track in sorted_tracks]
     sp.playlist_replace_items(playlist_id, track_ids[:100])
     for i in range(100, len(track_ids), 100):
@@ -55,13 +57,17 @@ def update_sorted_playlist(playlist_id, sorted_tracks):
     return playlist_id
 
 def get_user_playlists():
-    """Fetch all user playlists and allow user selection."""
-    playlists = sp.current_user_playlists()
+    """Fetch all user playlists and allow user selection, paginating if necessary."""
     playlist_dict = {}
-    print("Your playlists:")
-    for idx, playlist in enumerate(playlists['items']):
-        print(f"{idx + 1}. {playlist['name']} ({playlist['id']})")
-        playlist_dict[str(idx + 1)] = playlist['id']
+    offset = 0
+    while True:
+        playlists = sp.current_user_playlists(limit=50, offset=offset)
+        if not playlists['items']:
+            break
+        for idx, playlist in enumerate(playlists['items'], start=offset + 1):
+            print(f"{idx}. {playlist['name']} ({playlist['id']})")
+            playlist_dict[str(idx)] = playlist['id']
+        offset += 50
     
     selected_indices = input("Enter the numbers of the playlists you want to sort (comma-separated): ").split(',')
     return [playlist_dict[idx.strip()] for idx in selected_indices if idx.strip() in playlist_dict]
