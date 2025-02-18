@@ -4,10 +4,13 @@ from spotipy.oauth2 import SpotifyOAuth
 import time
 
 # Set up Spotify API credentials from environment variables
-SPOTIPY_CLIENT_ID = os.getenv("CLIENT_ID")
-SPOTIPY_CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-SPOTIPY_REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8888/callback")
+SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
+SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
+SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback")
 SCOPE = "playlist-modify-public playlist-modify-private playlist-read-private"
+
+if not SPOTIPY_CLIENT_ID or not SPOTIPY_CLIENT_SECRET:
+    raise ValueError("Missing Spotify API credentials. Ensure SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET are set.")
 
 # Authenticate with Spotify
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
@@ -23,16 +26,17 @@ def get_playlist_tracks(playlist_id):
     while results:
         for item in results['items']:
             track = item['track']
-            album = track['album']
-            release_date = album['release_date']
-            track_number = track['track_number']
-            tracks.append({
-                'id': track['id'],
-                'name': track['name'],
-                'album': album['name'],
-                'release_date': release_date,
-                'track_number': track_number
-            })
+            if track:  # Ensure track exists
+                album = track['album']
+                release_date = album['release_date']
+                track_number = track['track_number']
+                tracks.append({
+                    'id': track['id'],
+                    'name': track['name'],
+                    'album': album['name'],
+                    'release_date': release_date,
+                    'track_number': track_number
+                })
         results = sp.next(results) if results['next'] else None
     
     return tracks
@@ -61,6 +65,10 @@ def main():
     
     print("Fetching playlist tracks...")
     tracks = get_playlist_tracks(playlist_id)
+    
+    if not tracks:
+        print("No tracks found in the playlist.")
+        return
     
     print("Sorting tracks...")
     sorted_tracks = sort_tracks(tracks)
