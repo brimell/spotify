@@ -7,7 +7,7 @@ import time
 SPOTIPY_CLIENT_ID = os.getenv("SPOTIPY_CLIENT_ID")
 SPOTIPY_CLIENT_SECRET = os.getenv("SPOTIPY_CLIENT_SECRET")
 SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback")
-SCOPE = "playlist-modify-public playlist-modify-private playlist-read-private"
+SCOPE = "playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative"
 
 if not SPOTIPY_CLIENT_ID or not SPOTIPY_CLIENT_SECRET:
     raise ValueError("Missing Spotify API credentials. Ensure SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET are set.")
@@ -45,38 +45,51 @@ def sort_tracks(tracks):
     """Sort tracks by album release date, then by track number."""
     return sorted(tracks, key=lambda x: (x['release_date'], x['album'], x['track_number']))
 
-def create_sorted_playlist(user_id, original_playlist_name, sorted_tracks):
-    """Create a new sorted playlist and add tracks to it."""
-    new_playlist_name = f"Sorted - {original_playlist_name}"
-    new_playlist = sp.user_playlist_create(user_id, new_playlist_name, public=False)
-    
+def update_sorted_playlist(playlist_id, sorted_tracks):
+    """Update an existing playlist with sorted tracks."""
     track_ids = [track['id'] for track in sorted_tracks]
-    for i in range(0, len(track_ids), 100):  # Spotify allows adding 100 tracks at a time
-        sp.playlist_add_items(new_playlist['id'], track_ids[i:i+100])
+    sp.playlist_replace_items(playlist_id, track_ids[:100])
+    for i in range(100, len(track_ids), 100):
+        sp.playlist_add_items(playlist_id, track_ids[i:i+100])
         time.sleep(1)
+    return playlist_id
+
+def get_user_playlists():
+    """Fetch all user playlists and allow user selection."""
+    playlists = sp.current_user_playlists()
+    playlist_dict = {}
+    print("Your playlists:")
+    for idx, playlist in enumerate(playlists['items']):
+        print(f"{idx + 1}. {playlist['name']} ({playlist['id']})")
+        playlist_dict[str(idx + 1)] = playlist['id']
     
-    return new_playlist['id']
+    selected_indices = input("Enter the numbers of the playlists you want to sort (comma-separated): ").split(',')
+    return [playlist_dict[idx.strip()] for idx in selected_indices if idx.strip() in playlist_dict]
 
 def main():
-    playlist_id = input("Enter the Spotify Playlist ID: ")
     user_id = sp.me()['id']
-    playlist_info = sp.playlist(playlist_id)
-    playlist_name = playlist_info['name']
     
-    print("Fetching playlist tracks...")
-    tracks = get_playlist_tracks(playlist_id)
+    print("Fetching your playlists...")
+    playlist_ids = get_user_playlists()
     
-    if not tracks:
-        print("No tracks found in the playlist.")
-        return
-    
-    print("Sorting tracks...")
-    sorted_tracks = sort_tracks(tracks)
-    
-    print("Creating sorted playlist...")
-    new_playlist_id = create_sorted_playlist(user_id, playlist_name, sorted_tracks)
-    
-    print(f"Sorted playlist created: https://open.spotify.com/playlist/{new_playlist_id}")
+    for playlist_id in playlist_ids:
+        playlist_info = sp.playlist(playlist_id)
+        playlist_name = playlist_info['name']
+        
+        print(f"Fetching tracks for {playlist_name}...")
+        tracks = get_playlist_tracks(playlist_id)
+        
+        if not tracks:
+            print(f"No tracks found in {playlist_name}.")
+            continue
+        
+        print(f"Sorting tracks for {playlist_name}...")
+        sorted_tracks = sort_tracks(tracks)
+        
+        print(f"Updating sorted playlist: {playlist_name}...")
+        update_sorted_playlist(playlist_id, sorted_tracks)
+        
+        print(f"Updated playlist: https://open.spotify.com/playlist/{playlist_id}")
 
 if __name__ == "__main__":
     main()
