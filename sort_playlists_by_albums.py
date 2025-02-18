@@ -57,7 +57,7 @@ def update_sorted_playlist(playlist_id, sorted_tracks):
     return playlist_id
 
 def get_user_playlists():
-    """Fetch all user playlists and allow user selection, paginating if necessary."""
+    """Fetch all user playlists and allow user selection, including range selection."""
     playlist_dict = {}
     offset = 0
     while True:
@@ -69,7 +69,16 @@ def get_user_playlists():
             playlist_dict[str(idx)] = playlist['id']
         offset += 50
     
-    selected_indices = input("Enter the numbers of the playlists you want to sort (comma-separated): ").split(',')
+    selected_input = input("Enter the numbers of the playlists you want to sort (comma-separated or range like 56-70): ")
+    selected_indices = []
+    for part in selected_input.split(','):
+        part = part.strip()
+        if '-' in part:
+            start, end = map(int, part.split('-'))
+            selected_indices.extend(map(str, range(start, end + 1)))
+        else:
+            selected_indices.append(part)
+    
     return [playlist_dict[idx.strip()] for idx in selected_indices if idx.strip() in playlist_dict]
 
 def main():
